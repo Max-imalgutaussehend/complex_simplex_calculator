@@ -364,3 +364,71 @@ def create_tableau_from_parsed(
         tableau[-1, :n] = c
 
     return SimplexTableau(tableau, var_names, basis_vars, objective_type)
+
+
+def solve_simplex_automatic(
+    initial_tableau: SimplexTableau,
+    max_iterations: int = 100
+) -> List[SimplexTableau]:
+    """
+    Automatically solve simplex problem and return all intermediate tableaus.
+
+    Args:
+        initial_tableau: Starting tableau
+        max_iterations: Maximum number of iterations to prevent infinite loops
+
+    Returns:
+        List of tableaus (including initial), one per iteration
+    """
+    history = [initial_tableau]
+    current = initial_tableau
+
+    for iteration in range(max_iterations):
+        # Check if optimal
+        if current.is_optimal():
+            break
+
+        # Get entering variable (most negative reduced cost for max)
+        candidates = current.get_entering_variable_candidates()
+        if not candidates:
+            break  # Optimal or no improving variables
+
+        # Choose variable with most negative reduced cost (steepest descent)
+        entering_var = candidates[0]
+        entering_col = current.variable_names.index(entering_var)
+
+        # Get most negative for better improvement
+        best_rc = current.get_reduced_costs()[entering_var]
+        for var in candidates:
+            rc = current.get_reduced_costs()[var]
+            if current.objective_type == "max":
+                if rc < best_rc:
+                    best_rc = rc
+                    entering_var = var
+                    entering_col = current.variable_names.index(var)
+            else:  # min
+                if rc > best_rc:
+                    best_rc = rc
+                    entering_var = var
+                    entering_col = current.variable_names.index(var)
+
+        # Check unboundedness
+        if current.is_unbounded(entering_col):
+            break  # Unbounded
+
+        # Get leaving variable
+        leaving_candidates = current.get_leaving_variable_candidates(entering_col)
+        if not leaving_candidates:
+            break  # No valid leaving variable
+
+        # Choose minimum ratio
+        leaving_row = leaving_candidates[0][0]
+
+        # Perform pivot
+        try:
+            current = current.pivot(leaving_row, entering_col)
+            history.append(current)
+        except Exception:
+            break  # Pivot failed
+
+    return history

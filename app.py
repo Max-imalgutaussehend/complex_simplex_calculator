@@ -7,7 +7,7 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 from typing import List
-from simplex import SimplexTableau, create_standard_tableau, create_tableau_from_parsed
+from simplex import SimplexTableau, create_standard_tableau, create_tableau_from_parsed, solve_simplex_automatic
 from parser import parse_lp_problem, LPParser
 
 
@@ -91,6 +91,29 @@ def display_tableau_formatted(tableau: SimplexTableau, pivot_row=None, pivot_col
     # Objective value prominently displayed
     st.markdown("---")
     st.markdown(f"### 🎯 **Z = {obj_value:.4f}**")
+
+    # Show complete solution vector in expandable section
+    with st.expander("📊 Complete Solution Vector", expanded=False):
+        # Create DataFrame for complete solution
+        sol_data = []
+        for var in tableau.variable_names:
+            val = solution[var]
+            is_basic = "✓" if var in tableau.basis_variables else ""
+            sol_data.append({
+                "Variable": var,
+                "Value": f"{val:.6f}",
+                "Basic": is_basic
+            })
+
+        sol_df = pd.DataFrame(sol_data)
+        st.dataframe(sol_df, width='stretch', hide_index=True)
+
+        # Summary
+        st.markdown("**Summary:**")
+        st.markdown(f"- Decision variables: {len([v for v in tableau.variable_names if v.startswith('x')])}")
+        st.markdown(f"- Slack variables: {len([v for v in tableau.variable_names if v.startswith('s')])}")
+        st.markdown(f"- Basic variables: {len(tableau.basis_variables)}")
+        st.markdown(f"- Non-basic (zero): {len(tableau.variable_names) - len(tableau.basis_variables)}")
 
 
 def display_pivot_details(tableau: SimplexTableau, entering_var: str, leaving_var: str,
@@ -700,6 +723,21 @@ Negative RHS (automatically handled):
 
             # Step counter
             st.metric("Pivot Steps", st.session_state.step_number)
+
+            st.markdown("---")
+
+            # Auto-solve button
+            if not is_optimal:
+                if st.button("🚀 Solve Automatically", type="primary", use_container_width=True):
+                    try:
+                        all_tableaus = solve_simplex_automatic(tableau)
+                        st.session_state.history = all_tableaus
+                        st.session_state.tableau = all_tableaus[-1]
+                        st.session_state.step_number = len(all_tableaus) - 1
+                        st.success(f"✓ Solved in {len(all_tableaus)-1} iterations!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Auto-solve failed: {str(e)}")
 
             st.markdown("---")
 

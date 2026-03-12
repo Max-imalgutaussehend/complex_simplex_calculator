@@ -19,6 +19,155 @@ def initialize_session_state():
         st.session_state.history = []
     if 'step_number' not in st.session_state:
         st.session_state.step_number = 0
+    if 'pivot_info' not in st.session_state:
+        st.session_state.pivot_info = None
+
+
+def display_tableau_formatted(tableau: SimplexTableau, pivot_row=None, pivot_col=None):
+    """
+    Display tableau in a formatted way similar to emathhelp.net.
+    Shows constraints and objective separately with better formatting.
+    """
+    st.markdown("### Current Tableau")
+
+    # Get tableau data
+    df = tableau.get_dataframe()
+
+    # Split into constraints and objective
+    constraint_rows = df.iloc[:-1]
+    objective_row = df.iloc[-1:]
+
+    # Create styled dataframe
+    def highlight_pivot(row, col):
+        """Create highlighting style for pivot element."""
+        if pivot_row is not None and pivot_col is not None:
+            styles = ['' for _ in row.index]
+            if row.name == tableau.basis_variables[pivot_row]:
+                var_name = tableau.variable_names[pivot_col]
+                if var_name in row.index:
+                    idx = row.index.get_loc(var_name)
+                    styles[idx] = 'background-color: #ffeb3b; font-weight: bold; border: 2px solid #ff9800;'
+            return styles
+        return ['' for _ in row.index]
+
+    # Display constraints
+    st.markdown("#### Constraints:")
+    st.dataframe(
+        constraint_rows.style.format("{:.4f}").apply(highlight_pivot, axis=1),
+        use_container_width=True
+    )
+
+    # Display objective function
+    st.markdown("#### Objective Function (Z):")
+    st.dataframe(
+        objective_row.style.format("{:.4f}").background_gradient(cmap='RdYlGn', axis=1),
+        use_container_width=True
+    )
+
+    # Display current solution
+    st.markdown("---")
+    st.markdown("#### Current Solution:")
+
+    solution = tableau.get_basic_solution()
+    obj_value = tableau.get_objective_value()
+
+    # Create columns for solution display
+    col1, col2 = st.columns([2, 1])
+
+    with col1:
+        st.markdown("**Basic Variables:**")
+        for var in tableau.basis_variables:
+            value = solution[var]
+            st.markdown(f"- **{var}** = {value:.4f}")
+
+    with col2:
+        st.markdown("**Non-basic Variables:**")
+        nonbasic = [v for v in tableau.variable_names if v not in tableau.basis_variables]
+        for var in nonbasic[:5]:  # Show first 5
+            st.markdown(f"- **{var}** = 0.0000")
+        if len(nonbasic) > 5:
+            st.markdown(f"- ... ({len(nonbasic) - 5} more)")
+
+    # Objective value prominently displayed
+    st.markdown("---")
+    st.markdown(f"### 🎯 **Z = {obj_value:.4f}**")
+
+
+def display_pivot_details(tableau: SimplexTableau, entering_var: str, leaving_var: str,
+                         entering_col: int, leaving_row: int):
+    """Display detailed pivot operation information."""
+    st.markdown("---")
+    st.markdown("### 📋 Pivot Operation Details")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.markdown("**Entering Variable:**")
+        st.markdown(f"### ➡️ {entering_var}")
+        rc = tableau.get_reduced_costs()[entering_var]
+        st.markdown(f"Reduced cost: **{rc:.4f}**")
+
+    with col2:
+        st.markdown("**Leaving Variable:**")
+        st.markdown(f"### ⬅️ {leaving_var}")
+        value = tableau.tableau[leaving_row, -1]
+        st.markdown(f"Current value: **{value:.4f}**")
+
+    with col3:
+        st.markdown("**Pivot Element:**")
+        pivot_element = tableau.tableau[leaving_row, entering_col]
+        st.markdown(f"### 🎯 {pivot_element:.4f}")
+        st.markdown(f"Position: Row {leaving_row+1}, Col {entering_col+1}")
+
+    # Show minimum ratio test
+    st.markdown("---")
+    st.markdown("#### 📊 Minimum Ratio Test")
+    st.markdown("Choose the row with the **smallest non-negative ratio** to leave the basis.")
+
+    candidates = tableau.get_leaving_variable_candidates(entering_col)
+
+    ratio_data = []
+    for row, var, ratio in candidates:
+        rhs = tableau.tableau[row, -1]
+        coef = tableau.tableau[row, entering_col]
+        ratio_data.append({
+            "✓": "✓✓✓" if var == leaving_var else "",
+            "Basis Variable": var,
+            "RHS": f"{rhs:.4f}",
+            f"{entering_var} Coefficient": f"{coef:.4f}",
+            "Ratio (RHS/Coef)": f"{ratio:.4f}",
+        })
+
+    ratio_df = pd.DataFrame(ratio_data)
+    st.dataframe(ratio_df, use_container_width=True, hide_index=True)
+
+    # Show the pivot operation formula
+    st.markdown("---")
+    st.markdown("#### 📐 Pivot Operation Steps")
+    st.markdown(f"""
+    1. **Divide pivot row** by pivot element ({pivot_element:.4f})
+    2. **Eliminate** {entering_var} from all other rows
+    3. **Update basis**: Replace {leaving_var} with {entering_var}
+    """)
+
+
+def display_iteration_summary(step_number: int, entering_var: str, leaving_var: str,
+                             old_obj: float, new_obj: float):
+    """Display summary of iteration."""
+    st.markdown("---")
+    st.markdown(f"### 🔄 Iteration {step_number} Summary")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.metric("Entering", entering_var, delta="IN", delta_color="normal")
+
+    with col2:
+        st.metric("Leaving", leaving_var, delta="OUT", delta_color="inverse")
+
+    with col3:
+        obj_change = new_obj - old_obj
+        st.metric("Z Value", f"{new_obj:.4f}", delta=f"{obj_change:+.4f}")
 
 
 def create_empty_tableau(n_vars: int, n_constraints: int, var_names: List[str]) -> pd.DataFrame:
@@ -569,39 +718,50 @@ Negative RHS (automatically handled):
     # Display current tableau
     if st.session_state.tableau is not None:
         st.markdown("---")
-        st.header("Current Tableau")
 
         tableau = st.session_state.tableau
-        df = tableau.get_dataframe()
 
-        # Highlight formatting
-        def highlight_negative(val):
-            """Highlight negative reduced costs."""
-            try:
-                if float(val) < -1e-6:
-                    return 'background-color: #ffcccc'
-                elif float(val) > 1e-6:
-                    return 'background-color: #ccffcc'
-            except:
-                pass
-            return ''
+        # Check if we have pivot info to highlight
+        pivot_row = None
+        pivot_col = None
+        if st.session_state.pivot_info:
+            pivot_row = st.session_state.pivot_info.get('row')
+            pivot_col = st.session_state.pivot_info.get('col')
 
-        # Display with styling
-        st.dataframe(
-            df.style.format("{:.4f}"),
-            use_container_width=True
-        )
+        # Use new formatted display
+        display_tableau_formatted(tableau, pivot_row, pivot_col)
 
-        # Reduced costs
-        st.subheader("Reduced Costs")
+        # Show last pivot info if available
+        if st.session_state.pivot_info and st.session_state.step_number > 0:
+            with st.expander(f"📜 Last Pivot (Iteration {st.session_state.step_number})", expanded=False):
+                info = st.session_state.pivot_info
+                col1, col2, col3 = st.columns(3)
+
+                with col1:
+                    st.metric("Entered Basis", info['entering'], delta="IN")
+
+                with col2:
+                    st.metric("Left Basis", info['leaving'], delta="OUT")
+
+                with col3:
+                    if 'old_obj' in info:
+                        old_obj = info['old_obj']
+                        new_obj = tableau.get_objective_value()
+                        change = new_obj - old_obj
+                        st.metric("Z Change", f"{change:+.4f}", delta=f"{new_obj:.4f}")
+
+        # Reduced costs section
+        st.markdown("---")
+        st.subheader("Reduced Costs (Shadow Prices)")
         reduced_costs = tableau.get_reduced_costs()
 
-        rc_cols = st.columns(min(4, len(reduced_costs)))
+        rc_cols = st.columns(min(5, len(reduced_costs)))
         for i, (var, cost) in enumerate(reduced_costs.items()):
             col_idx = i % len(rc_cols)
             with rc_cols[col_idx]:
                 indicator = "[!]" if (objective_type == "max" and cost < -1e-6) or (objective_type == "min" and cost > 1e-6) else "[ ]"
-                st.metric(f"{indicator} {var}", f"{cost:.4f}")
+                delta_color = "inverse" if abs(cost) > 1e-6 else "off"
+                st.metric(f"{indicator} {var}", f"{cost:.4f}", delta=None, delta_color=delta_color)
 
         # Pivot controls
         st.markdown("---")
@@ -667,13 +827,36 @@ Negative RHS (automatically handled):
                     pivot_element = tableau.tableau[leaving_row, entering_col]
                     st.metric("Pivot Element", f"{pivot_element:.4f}")
 
+                    # Show pivot details before performing
+                    leaving_var = leaving_candidates[selected_idx][1]
+
+                    with st.expander("Show Pivot Details", expanded=False):
+                        display_pivot_details(tableau, entering_var, leaving_var, entering_col, leaving_row)
+
                     if st.button("Perform Pivot", type="primary"):
                         try:
+                            # Save old objective value
+                            old_obj = tableau.get_objective_value()
+
+                            # Save pivot info for highlighting
+                            st.session_state.pivot_info = {
+                                'row': leaving_row,
+                                'col': entering_col,
+                                'entering': entering_var,
+                                'leaving': leaving_var,
+                                'old_obj': old_obj
+                            }
+
                             new_tableau = tableau.pivot(leaving_row, entering_col)
                             st.session_state.tableau = new_tableau
                             st.session_state.history.append(new_tableau)
                             st.session_state.step_number += 1
-                            st.success(f"Pivoted: {entering_var} enters, {leaving_candidates[selected_idx][1]} leaves")
+
+                            # Show iteration summary
+                            new_obj = new_tableau.get_objective_value()
+                            st.success(f"✓ Pivot complete: {entering_var} → IN, {leaving_var} → OUT")
+                            st.info(f"Objective improved from {old_obj:.4f} to {new_obj:.4f} (Δ = {new_obj - old_obj:+.4f})")
+
                             st.rerun()
                         except Exception as e:
                             st.error(f"Pivot failed: {str(e)}")
@@ -704,20 +887,6 @@ Negative RHS (automatically handled):
                         st.session_state.step_number += 1
                         st.session_state.tableau = st.session_state.history[st.session_state.step_number]
                         st.rerun()
-
-        # Basic solution
-        st.markdown("---")
-        st.subheader("Current Basic Feasible Solution")
-
-        solution = tableau.get_basic_solution()
-        sol_cols = st.columns(min(4, len(solution)))
-
-        for i, (var, value) in enumerate(solution.items()):
-            col_idx = i % len(sol_cols)
-            with sol_cols[col_idx]:
-                is_basic = var in tableau.basis_variables
-                indicator = "[B]" if is_basic else "[ ]"
-                st.text(f"{indicator} {var} = {value:.4f}")
 
 
 if __name__ == "__main__":

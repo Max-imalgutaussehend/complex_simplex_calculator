@@ -38,17 +38,17 @@ def display_tableau_formatted(tableau: SimplexTableau, pivot_row=None, pivot_col
     objective_row = df.iloc[-1:]
 
     # Create styled dataframe
-    def highlight_pivot(row, col):
+    def highlight_pivot(row):
         """Create highlighting style for pivot element."""
+        styles = ['' for _ in row.index]
         if pivot_row is not None and pivot_col is not None:
-            styles = ['' for _ in row.index]
+            # Check if this is the pivot row
             if row.name == tableau.basis_variables[pivot_row]:
                 var_name = tableau.variable_names[pivot_col]
                 if var_name in row.index:
                     idx = row.index.get_loc(var_name)
                     styles[idx] = 'background-color: #ffeb3b; font-weight: bold; border: 2px solid #ff9800;'
-            return styles
-        return ['' for _ in row.index]
+        return styles
 
     # Display constraints
     st.markdown("#### Constraints:")

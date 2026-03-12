@@ -54,14 +54,14 @@ def display_tableau_formatted(tableau: SimplexTableau, pivot_row=None, pivot_col
     st.markdown("#### Constraints:")
     st.dataframe(
         constraint_rows.style.format("{:.4f}").apply(highlight_pivot, axis=1),
-        use_container_width=True
+        width='stretch'
     )
 
     # Display objective function
     st.markdown("#### Objective Function (Z):")
     st.dataframe(
         objective_row.style.format("{:.4f}").background_gradient(cmap='RdYlGn', axis=1),
-        use_container_width=True
+        width='stretch'
     )
 
     # Display current solution
@@ -139,7 +139,7 @@ def display_pivot_details(tableau: SimplexTableau, entering_var: str, leaving_va
         })
 
     ratio_df = pd.DataFrame(ratio_data)
-    st.dataframe(ratio_df, use_container_width=True, hide_index=True)
+    st.dataframe(ratio_df, width='stretch', hide_index=True)
 
     # Show the pivot operation formula
     st.markdown("---")
@@ -267,38 +267,32 @@ def main():
             st.error("MANUAL.md not found. Please ensure the manual file exists in the application directory.")
 
     with tab1:
-        # Main calculator interface
-        main_calculator_interface(objective_type_global=None)
+        # Sidebar: Configuration
+        with st.sidebar:
+            st.header("Configuration")
 
+            mode = st.radio(
+                "Tableau Mode",
+                [
+                    "Expression Input (Flexible)",
+                    "Create New Tableau",
+                    "Matrix Input (Standard Form)",
+                    "Final Tableau (Endtableau)"
+                ],
+                help="Choose input method: expressions, manual tableau, matrices, or final tableau"
+            )
 
-def main_calculator_interface(objective_type_global):
+            objective_type = st.selectbox(
+                "Objective Type",
+                ["max", "min"],
+                help="Maximize or minimize objective function"
+            )
 
-    # Sidebar: Configuration
-    with st.sidebar:
-        st.header("Configuration")
-
-        mode = st.radio(
-            "Tableau Mode",
-            [
-                "Expression Input (Flexible)",
-                "Create New Tableau",
-                "Matrix Input (Standard Form)",
-                "Final Tableau (Endtableau)"
-            ],
-            help="Choose input method: expressions, manual tableau, matrices, or final tableau"
-        )
-
-        objective_type = st.selectbox(
-            "Objective Type",
-            ["max", "min"],
-            help="Maximize or minimize objective function"
-        )
-
-        if mode == "Expression Input (Flexible)":
-            st.markdown("---")
-            st.subheader("Examples")
-            with st.expander("Show syntax examples"):
-                st.code("""
+            if mode == "Expression Input (Flexible)":
+                st.markdown("---")
+                st.subheader("Examples")
+                with st.expander("Show syntax examples"):
+                    st.code("""
 Objective:
   3*x_1 + 4*x_2
   2*x_1 - 3*x_2 + 5*x_3
@@ -314,86 +308,86 @@ With slack variables:
 
 Negative RHS (automatically handled):
   x_1 + x_2 <= -3  (converted to: -x_1 - x_2 >= 3)
-                """)
+                    """)
 
-        elif mode == "Create New Tableau":
-            n_vars = st.number_input(
-                "Number of Variables",
-                min_value=1,
-                max_value=20,
-                value=4,
-                help="Total variables including slack/surplus"
-            )
+            elif mode == "Create New Tableau":
+                n_vars = st.number_input(
+                    "Number of Variables",
+                    min_value=1,
+                    max_value=20,
+                    value=4,
+                    help="Total variables including slack/surplus"
+                )
 
-            n_constraints = st.number_input(
-                "Number of Constraints",
-                min_value=1,
-                max_value=20,
-                value=2,
-                help="Number of constraint rows (excluding objective)"
-            )
+                n_constraints = st.number_input(
+                    "Number of Constraints",
+                    min_value=1,
+                    max_value=20,
+                    value=2,
+                    help="Number of constraint rows (excluding objective)"
+                )
 
-            # Variable names
-            st.subheader("Variable Names")
-            default_names = [f'x{i+1}' for i in range(n_vars)]
-            var_names_input = st.text_input(
-                "Variable Names (comma-separated)",
-                value=", ".join(default_names),
-                help="e.g., x1, x2, s1, s2"
-            )
-            var_names = [name.strip() for name in var_names_input.split(',')]
+                # Variable names
+                st.subheader("Variable Names")
+                default_names = [f'x{i+1}' for i in range(n_vars)]
+                var_names_input = st.text_input(
+                    "Variable Names (comma-separated)",
+                    value=", ".join(default_names),
+                    help="e.g., x1, x2, s1, s2"
+                )
+                var_names = [name.strip() for name in var_names_input.split(',')]
 
-            if len(var_names) != n_vars:
-                st.warning(f"⚠️ Please provide exactly {n_vars} variable names")
-                var_names = default_names
+                if len(var_names) != n_vars:
+                    st.warning(f"⚠️ Please provide exactly {n_vars} variable names")
+                    var_names = default_names
 
-        elif mode == "Matrix Input (Standard Form)":
-            n_decision_vars = st.number_input(
-                "Number of Decision Variables",
-                min_value=1,
-                max_value=20,
-                value=2,
-                help="Original decision variables (slack added automatically)"
-            )
+            elif mode == "Matrix Input (Standard Form)":
+                n_decision_vars = st.number_input(
+                    "Number of Decision Variables",
+                    min_value=1,
+                    max_value=20,
+                    value=2,
+                    help="Original decision variables (slack added automatically)"
+                )
 
-            n_constraints = st.number_input(
-                "Number of Constraints",
-                min_value=1,
-                max_value=20,
-                value=2,
-                help="Number of constraints"
-            )
+                n_constraints = st.number_input(
+                    "Number of Constraints",
+                    min_value=1,
+                    max_value=20,
+                    value=2,
+                    help="Number of constraints"
+                )
 
-        else:  # Final Tableau (Endtableau)
-            n_decision_vars = st.number_input(
-                "Number of Decision Variables",
-                min_value=1,
-                max_value=20,
-                value=2,
-                help="Original decision variables (will be in basis)"
-            )
+            else:  # Final Tableau (Endtableau)
+                n_decision_vars = st.number_input(
+                    "Number of Decision Variables",
+                    min_value=1,
+                    max_value=20,
+                    value=2,
+                    help="Original decision variables (will be in basis)"
+                )
 
-            n_constraints = st.number_input(
-                "Number of Constraints",
-                min_value=1,
-                max_value=20,
-                value=2,
-                help="Number of constraints"
-            )
+                n_constraints = st.number_input(
+                    "Number of Constraints",
+                    min_value=1,
+                    max_value=20,
+                    value=2,
+                    help="Number of constraints"
+                )
 
-        st.markdown("---")
+            st.markdown("---")
 
-        if st.button("Reset Tableau"):
-            st.session_state.tableau = None
-            st.session_state.history = []
-            st.session_state.step_number = 0
-            st.rerun()
+            if st.button("Reset Tableau"):
+                st.session_state.tableau = None
+                st.session_state.history = []
+                st.session_state.step_number = 0
+                st.rerun()
 
-    # Main area
-    col1, col2 = st.columns([2, 1])
+        # Main area
+        col1, col2 = st.columns([2, 1])
 
-    with col1:
-        st.header("Tableau Definition")
+        with col1:
+            st.header("Tableau Definition")
 
         if mode == "Expression Input (Flexible)":
             # Expression-based input
@@ -466,7 +460,7 @@ Negative RHS (automatically handled):
 
                 edited_df = st.data_editor(
                     empty_df,
-                    use_container_width=True,
+                    width='stretch',
                     num_rows="fixed",
                     key="tableau_input"
                 )
@@ -515,7 +509,7 @@ Negative RHS (automatically handled):
                         np.zeros((n_constraints, n_decision_vars)),
                         columns=[f'x{i+1}' for i in range(n_decision_vars)]
                     ),
-                    use_container_width=True,
+                    width='stretch',
                     key="matrix_A"
                 )
 
@@ -528,7 +522,7 @@ Negative RHS (automatically handled):
                             np.ones((n_constraints, 1)),
                             columns=['b']
                         ),
-                        use_container_width=True,
+                        width='stretch',
                         key="vector_b"
                     )
 
@@ -539,7 +533,7 @@ Negative RHS (automatically handled):
                             np.ones((1, n_decision_vars)),
                             columns=[f'x{i+1}' for i in range(n_decision_vars)]
                         ),
-                        use_container_width=True,
+                        width='stretch',
                         key="vector_c"
                     )
 
@@ -569,7 +563,7 @@ Negative RHS (automatically handled):
                         columns=['Value'],
                         index=[f'x{i+1}' for i in range(n_constraints)]
                     ),
-                    use_container_width=True,
+                    width='stretch',
                     key="final_b"
                 )
 
@@ -581,7 +575,7 @@ Negative RHS (automatically handled):
                         columns=[f's{i+1}' for i in range(n_constraints)],
                         index=[f'x{i+1}' for i in range(n_constraints)]
                     ),
-                    use_container_width=True,
+                    width='stretch',
                     key="slack_coef"
                 )
 
@@ -596,7 +590,7 @@ Negative RHS (automatically handled):
                             columns=['Coefficient'],
                             index=[f'x{i+1}' for i in range(n_constraints)]
                         ),
-                        use_container_width=True,
+                        width='stretch',
                         key="final_c"
                     )
 
@@ -609,7 +603,7 @@ Negative RHS (automatically handled):
                             columns=['Reduced Cost'],
                             index=[f's{i+1}' for i in range(n_constraints)]
                         ),
-                        use_container_width=True,
+                        width='stretch',
                         key="slack_rc"
                     )
 
@@ -623,7 +617,7 @@ Negative RHS (automatically handled):
                             columns=[f'x{i+1}' for i in range(n_constraints, n_decision_vars)],
                             index=[f'x{i+1}' for i in range(n_constraints)]
                         ),
-                        use_container_width=True,
+                        width='stretch',
                         key="nonbasic_x"
                     )
 

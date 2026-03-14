@@ -9,6 +9,8 @@ import pandas as pd
 from typing import List
 from simplex import SimplexTableau, create_standard_tableau, create_tableau_from_parsed, solve_simplex_automatic
 from parser import parse_lp_problem, LPParser
+from translations import get_text
+from tableau_renderer import render_tableau_with_inequalities
 
 
 def initialize_session_state():
@@ -27,6 +29,8 @@ def initialize_session_state():
         st.session_state.constraints_input = None
     if 'objective_type_saved' not in st.session_state:
         st.session_state.objective_type_saved = None
+    if 'language' not in st.session_state:
+        st.session_state.language = "de"  # Default to German
 
 
 def convert_to_latex(objective: str, constraints_str: str, objective_type: str = "max") -> str:
@@ -82,12 +86,17 @@ def convert_to_latex(objective: str, constraints_str: str, objective_type: str =
     return latex_str
 
 
-def display_tableau_formatted(tableau: SimplexTableau, pivot_row=None, pivot_col=None):
+def display_tableau_formatted(tableau: SimplexTableau, pivot_row=None, pivot_col=None, lang="de"):
     """
     Display tableau in a formatted way similar to emathhelp.net.
     Shows constraints and objective separately with better formatting.
+    Now includes beautiful LaTeX system representation.
     """
-    st.markdown("### Current Tableau")
+    st.markdown("### " + get_text("current_tableau", lang))
+
+    # Beautiful LaTeX representation with >= / <=
+    with st.expander("📐 " + ("Gleichungssystem-Darstellung" if lang == "de" else "System Representation"), expanded=True):
+        render_tableau_with_inequalities(tableau, lang)
 
     # Get tableau data
     df = tableau.get_dataframe()
@@ -110,14 +119,14 @@ def display_tableau_formatted(tableau: SimplexTableau, pivot_row=None, pivot_col
         return styles
 
     # Display constraints
-    st.markdown("#### Constraints:")
+    st.markdown("#### " + get_text("constraints_section", lang))
     st.dataframe(
         constraint_rows.style.format("{:.4f}").apply(highlight_pivot, axis=1),
         width='stretch'
     )
 
     # Display objective function
-    st.markdown("#### Objective Function (Z):")
+    st.markdown("#### " + get_text("objective_section", lang))
     st.dataframe(
         objective_row.style.format("{:.4f}").background_gradient(cmap='RdYlGn', axis=1),
         width='stretch'
@@ -328,16 +337,16 @@ def main():
         initial_sidebar_state="expanded"
     )
 
-    st.title("Interactive Simplex Tableau Calculator")
-    st.markdown("""
-    This tool allows you to manually manipulate simplex tableaus, perform pivot operations,
-    and optimize **any variable** (including slack variables). Perfect for studying the Simplex algorithm.
-    """)
-
     initialize_session_state()
 
+    # Language selector at the very top
+    lang = st.session_state.language
+
+    st.title(get_text("title", lang))
+    st.markdown(get_text("subtitle", lang))
+
     # Add tabs for main interface and manual
-    tab1, tab2 = st.tabs(["Simplex Calculator", "User Manual"])
+    tab1, tab2 = st.tabs([get_text("tab_calculator", lang), get_text("tab_manual", lang)])
 
     with tab2:
         # Display the manual
@@ -351,39 +360,55 @@ def main():
     with tab1:
         # Sidebar: Configuration
         with st.sidebar:
-            st.header("Configuration")
+            # Language selector at the top
+            st.session_state.language = st.selectbox(
+                "🌐 Language / Sprache",
+                ["de", "en"],
+                format_func=lambda x: "🇩🇪 Deutsch" if x == "de" else "🇬🇧 English",
+                index=0 if st.session_state.language == "de" else 1
+            )
+            lang = st.session_state.language
+
+            st.markdown("---")
+            st.header(get_text("configuration", lang))
 
             mode = st.radio(
-                "Tableau Mode",
+                get_text("tableau_mode", lang),
                 [
                     "Expression Input (Flexible)",
                     "Create New Tableau",
                     "Matrix Input (Standard Form)",
                     "Final Tableau (Endtableau)"
                 ],
-                help="Choose input method: expressions, manual tableau, matrices, or final tableau"
+                format_func=lambda x: {
+                    "Expression Input (Flexible)": get_text("mode_expression", lang),
+                    "Create New Tableau": get_text("mode_create", lang),
+                    "Matrix Input (Standard Form)": get_text("mode_matrix", lang),
+                    "Final Tableau (Endtableau)": get_text("mode_final", lang)
+                }.get(x, x),
+                help=get_text("tableau_mode", lang)
             )
 
             objective_type = st.selectbox(
-                "Objective Type",
+                get_text("objective_type", lang),
                 ["max", "min"],
-                help="Maximize or minimize objective function"
+                help=get_text("objective_type", lang)
             )
 
             # Endtableau mode checkbox (for Expression Input only)
             if mode == "Expression Input (Flexible)":
                 endtableau_mode = st.checkbox(
-                    "Endtableau Mode",
+                    get_text("endtableau_mode", lang),
                     value=False,
-                    help="Use this for final tableaus (after Simplex). Equations (=) won't add artificial variables. Decision variables will be in basis."
+                    help=get_text("endtableau_help", lang)
                 )
             else:
                 endtableau_mode = False
 
             if mode == "Expression Input (Flexible)":
                 st.markdown("---")
-                st.subheader("Examples")
-                with st.expander("Show syntax examples"):
+                st.subheader(get_text("examples", lang))
+                with st.expander(get_text("show_examples", lang)):
                     st.code("""
 Objective:
   3*x_1 + 4*x_2
@@ -876,7 +901,7 @@ Negative RHS (automatically handled):
             pivot_col = st.session_state.pivot_info.get('col')
 
         # Use new formatted display
-        display_tableau_formatted(tableau, pivot_row, pivot_col)
+        display_tableau_formatted(tableau, pivot_row, pivot_col, lang)
 
         # Show last pivot info if available
         if st.session_state.pivot_info and st.session_state.step_number > 0:

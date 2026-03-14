@@ -335,12 +335,12 @@ def create_tableau_from_parsed(
 ) -> SimplexTableau:
     """
     Create a simplex tableau from already-parsed LP problem.
-    Assumes A already includes slack variables.
+    Assumes A already includes slack variables and handles Big-M method.
 
     Args:
         A: constraint matrix with slack variables (m x n)
         b: RHS vector (m)
-        c: objective coefficients for all variables (n)
+        c: objective coefficients for all variables (n) - includes Big-M penalties
         var_names: names of all variables
         basis_vars: names of initial basis variables
         objective_type: "max" or "min"
@@ -357,11 +357,29 @@ def create_tableau_from_parsed(
     tableau[:m, :n] = A
     tableau[:m, -1] = b
 
-    # Objective row
+    # Objective row (initially just -c for max, c for min)
     if objective_type == "max":
         tableau[-1, :n] = -c  # negative for maximization
     else:
         tableau[-1, :n] = c
+
+    # Big-M Method: If artificial variables are in basis, adjust objective row
+    # to eliminate them from the objective function
+    artificial_vars = [v for v in basis_vars if v.startswith('a_')]
+
+    if artificial_vars:
+        # For each artificial variable in basis, subtract M times its row from objective
+        for art_var in artificial_vars:
+            if art_var in var_names:
+                var_idx = var_names.index(art_var)
+                basis_idx = basis_vars.index(art_var)
+
+                # Get the coefficient of this artificial variable in objective
+                M_coef = tableau[-1, var_idx]
+
+                # Subtract M_coef times the constraint row from objective row
+                # This makes the artificial variable have coefficient 0 in objective
+                tableau[-1, :] = tableau[-1, :] - M_coef * tableau[basis_idx, :]
 
     return SimplexTableau(tableau, var_names, basis_vars, objective_type)
 

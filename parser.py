@@ -170,7 +170,7 @@ class LPParser:
         objective_type: str = "max"
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, List[str], List[str]]:
         """
-        Convert parsed LP to standard form matrices.
+        Convert parsed LP to standard form matrices with Big-M method for >= constraints.
 
         Returns:
             (A, b, c, variable_names, basis_variables)
@@ -190,9 +190,14 @@ class LPParser:
         A = np.zeros((n_constraints, n_vars))
         b = np.zeros(n_constraints)
 
-        # Track which slack variables we need to add
+        # Track which slack/artificial variables we need to add
         slack_counter = 1
+        artificial_counter = 1
         added_slacks = []
+        added_artificials = []  # For >= and = constraints
+
+        # Big M value
+        BIG_M = 1e6
 
         for i, (coeffs, operator, rhs) in enumerate(constraints):
             # Fill in coefficients for existing variables
@@ -213,57 +218,77 @@ class LPParser:
 
             b[i] = rhs
 
-            # Determine if we need to add a slack variable
+            # Determine if we need to add slack/artificial variables
             if operator == '<=':
-                # Add slack variable
+                # Add slack variable (basis variable)
                 slack_name = f's_{slack_counter}'
-                added_slacks.append((i, slack_name, 1.0))  # +1 coefficient
+                added_slacks.append((i, slack_name, 1.0, False))  # Not artificial
                 slack_counter += 1
             elif operator == '>=':
-                # Subtract slack variable (or add surplus)
+                # Subtract surplus variable, add artificial variable
                 slack_name = f's_{slack_counter}'
-                added_slacks.append((i, slack_name, -1.0))  # -1 coefficient
+                artificial_name = f'a_{artificial_counter}'
+                added_slacks.append((i, slack_name, -1.0, False))  # Surplus
+                added_artificials.append((i, artificial_name, 1.0))  # Artificial (basis)
                 slack_counter += 1
-            # operator == '=' needs no slack
+                artificial_counter += 1
+            elif operator == '=':
+                # Add artificial variable only
+                artificial_name = f'a_{artificial_counter}'
+                added_artificials.append((i, artificial_name, 1.0))  # Artificial (basis)
+                artificial_counter += 1
 
         # Add slack variables to matrix
         if added_slacks:
             slack_matrix = np.zeros((n_constraints, len(added_slacks)))
-            for idx, (row, slack_name, coef) in enumerate(added_slacks):
+            for idx, (row, slack_name, coef, _) in enumerate(added_slacks):
                 slack_matrix[row, idx] = coef
 
             A = np.hstack([A, slack_matrix])
-            all_vars.extend([slack_name for _, slack_name, _ in added_slacks])
+            all_vars.extend([slack_name for _, slack_name, _, _ in added_slacks])
 
-        # Build objective coefficient vector c
+        # Add artificial variables to matrix
+        if added_artificials:
+            artificial_matrix = np.zeros((n_constraints, len(added_artificials)))
+            for idx, (row, artificial_name, coef) in enumerate(added_artificials):
+                artificial_matrix[row, idx] = coef
+
+            A = np.hstack([A, artificial_matrix])
+            all_vars.extend([artificial_name for _, artificial_name, _ in added_artificials])
+
+        # Build objective coefficient vector c with Big-M penalty
         c = np.zeros(len(all_vars))
         for i, var in enumerate(all_vars):
             if var in obj_coeffs:
                 c[i] = obj_coeffs[var]
+            elif var.startswith('a_'):
+                # Artificial variables get Big-M penalty
+                if objective_type.lower() == "max":
+                    c[i] = -BIG_M  # Very negative for maximization
+                else:
+                    c[i] = BIG_M   # Very positive for minimization
 
-        # For minimization, negate objective
-        if objective_type.lower() == "min":
-            c = -c
+        # Initial basis: slack variables (for <=) and artificial variables (for >= and =)
+        basis_vars = []
 
-        # Initial basis is the slack variables we added
-        basis_vars = [slack_name for _, slack_name, _ in added_slacks]
+        # Add slacks from <= constraints
+        for _, slack_name, _, is_artificial in added_slacks:
+            if not is_artificial:
+                # Only non-surplus slacks go in basis
+                if any(s[1] == slack_name and s[2] > 0 for s in added_slacks):
+                    basis_vars.append(slack_name)
 
-        # If we don't have enough basis variables, we need artificial variables
-        # (This is a more advanced case - for now, assume we have enough slacks)
+        # Add artificial variables (they start in basis for >= and =)
+        for _, artificial_name, _ in added_artificials:
+            basis_vars.append(artificial_name)
+
+        # If we still don't have enough basis variables, add surplus variables
         if len(basis_vars) < n_constraints:
-            # Add artificial variables (simplified - would need two-phase simplex)
-            for i in range(len(basis_vars), n_constraints):
-                artificial_name = f'a_{i+1}'
-                all_vars.append(artificial_name)
-                basis_vars.append(artificial_name)
-
-                # Add column to A
-                col = np.zeros((n_constraints, 1))
-                col[i, 0] = 1.0
-                A = np.hstack([A, col])
-
-                # Add to objective (big M method - simplified)
-                c = np.append(c, 0)
+            for _, slack_name, coef, _ in added_slacks:
+                if slack_name not in basis_vars:
+                    basis_vars.append(slack_name)
+                    if len(basis_vars) >= n_constraints:
+                        break
 
         return A, b, c, all_vars, basis_vars
 

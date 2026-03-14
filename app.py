@@ -21,6 +21,65 @@ def initialize_session_state():
         st.session_state.step_number = 0
     if 'pivot_info' not in st.session_state:
         st.session_state.pivot_info = None
+    if 'objective_input' not in st.session_state:
+        st.session_state.objective_input = None
+    if 'constraints_input' not in st.session_state:
+        st.session_state.constraints_input = None
+    if 'objective_type_saved' not in st.session_state:
+        st.session_state.objective_type_saved = None
+
+
+def convert_to_latex(objective: str, constraints_str: str, objective_type: str = "max") -> str:
+    """
+    Convert LP problem to LaTeX format.
+
+    Args:
+        objective: Objective function string like "3*x_1 + 4*x_2"
+        constraints_str: Constraints string like "2*x_1 + 3*x_2 <= 4, x_1 >= 0"
+        objective_type: "max" or "min"
+
+    Returns:
+        LaTeX string for rendering
+    """
+    # Convert objective
+    obj_latex = objective.replace("*", " \\cdot ")
+    obj_latex = obj_latex.replace("x_", "x_{").replace("y_", "y_{").replace("s_", "s_{")
+    # Close subscripts
+    import re
+    obj_latex = re.sub(r'x_\{(\d+)', r'x_{\1}', obj_latex)
+    obj_latex = re.sub(r'y_\{(\d+)', r'y_{\1}', obj_latex)
+    obj_latex = re.sub(r's_\{(\d+)', r's_{\1}', obj_latex)
+
+    # Maximize/Minimize text
+    opt_text = "\\text{Maximiere}" if objective_type == "max" else "\\text{Minimiere}"
+
+    # Convert constraints
+    constraints = [c.strip() for c in constraints_str.split(',') if c.strip()]
+    constraint_latex_list = []
+
+    for constraint in constraints:
+        # Replace operators
+        c_latex = constraint.replace("*", " \\cdot ")
+        c_latex = c_latex.replace("<=", "\\leq")
+        c_latex = c_latex.replace(">=", "\\geq")
+        c_latex = c_latex.replace("=", "=")
+
+        # Replace variables
+        c_latex = c_latex.replace("x_", "x_{").replace("y_", "y_{").replace("s_", "s_{")
+        c_latex = re.sub(r'x_\{(\d+)', r'x_{\1}', c_latex)
+        c_latex = re.sub(r'y_\{(\d+)', r'y_{\1}', c_latex)
+        c_latex = re.sub(r's_\{(\d+)', r's_{\1}', c_latex)
+
+        constraint_latex_list.append(c_latex)
+
+    # Build LaTeX string
+    latex_str = f"{opt_text} \\quad {obj_latex}, \\text{{ unter den Nebenbedingungen}}"
+    latex_str += "\\begin{cases}\n"
+    for c_latex in constraint_latex_list:
+        latex_str += f"  {c_latex} \\\\\n"
+    latex_str += "\\end{cases}"
+
+    return latex_str
 
 
 def display_tableau_formatted(tableau: SimplexTableau, pivot_row=None, pivot_col=None):
@@ -311,6 +370,16 @@ def main():
                 help="Maximize or minimize objective function"
             )
 
+            # Endtableau mode checkbox (for Expression Input only)
+            if mode == "Expression Input (Flexible)":
+                endtableau_mode = st.checkbox(
+                    "Endtableau Mode",
+                    value=False,
+                    help="Use this for final tableaus (after Simplex). Equations (=) won't add artificial variables. Decision variables will be in basis."
+                )
+            else:
+                endtableau_mode = False
+
             if mode == "Expression Input (Flexible)":
                 st.markdown("---")
                 st.subheader("Examples")
@@ -416,6 +485,22 @@ Negative RHS (automatically handled):
             if st.session_state.tableau is not None:
                 st.success("✓ Tableau loaded")
 
+                # Show original LP formulation in LaTeX if available
+                if (st.session_state.objective_input is not None and
+                    st.session_state.constraints_input is not None and
+                    st.session_state.objective_type_saved is not None):
+
+                    with st.expander("📐 LP Formulation (LaTeX)", expanded=True):
+                        try:
+                            latex_str = convert_to_latex(
+                                st.session_state.objective_input,
+                                st.session_state.constraints_input,
+                                st.session_state.objective_type_saved
+                            )
+                            st.latex(latex_str)
+                        except Exception as e:
+                            st.error(f"LaTeX rendering error: {str(e)}")
+
                 with st.expander("📊 View Current Tableau Matrix", expanded=False):
                     tableau = st.session_state.tableau
                     df = tableau.get_dataframe()
@@ -449,12 +534,22 @@ Negative RHS (automatically handled):
                     height=150
                 )
 
+                # LaTeX Preview
+                with st.expander("📐 LaTeX Preview", expanded=True):
+                    try:
+                        latex_str = convert_to_latex(objective_input, constraints_input, objective_type)
+                        st.latex(latex_str)
+                    except Exception as e:
+                        st.error(f"LaTeX rendering error: {str(e)}")
+
                 # Preview parsing
                 with st.expander("Preview Parsing"):
                     try:
                         parser = LPParser()
-                        obj_coeffs = parser.parse_expression(objective_input)
+                        obj_coeffs, obj_constant = parser.parse_expression(objective_input)
                         st.write("**Objective coefficients:**", obj_coeffs)
+                        if obj_constant != 0:
+                            st.write("**Objective constant:**", obj_constant)
 
                         constraints = parser.parse_constraints(constraints_input)
                         st.write(f"**Found {len(constraints)} constraints:**")
@@ -469,16 +564,22 @@ Negative RHS (automatically handled):
                 if st.button("Create Tableau from Expressions", type="primary"):
                     try:
                         # Parse LP problem
-                        A, b, c, var_names, basis_vars = parse_lp_problem(
+                        A, b, c, var_names, basis_vars, obj_constant = parse_lp_problem(
                             objective_input,
                             constraints_input,
-                            objective_type
+                            objective_type,
+                            endtableau_mode=endtableau_mode
                         )
 
                         # Create tableau using parsed data
                         st.session_state.tableau = create_tableau_from_parsed(
-                            A, b, c, var_names, basis_vars, objective_type
+                            A, b, c, var_names, basis_vars, objective_type, obj_constant
                         )
+
+                        # Save inputs for later display
+                        st.session_state.objective_input = objective_input
+                        st.session_state.constraints_input = constraints_input
+                        st.session_state.objective_type_saved = objective_type
 
                         st.session_state.history = [st.session_state.tableau]
                         st.session_state.step_number = 0

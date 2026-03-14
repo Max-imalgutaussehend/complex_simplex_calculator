@@ -331,7 +331,8 @@ def create_tableau_from_parsed(
     c: np.ndarray,
     var_names: List[str],
     basis_vars: List[str],
-    objective_type: str = "max"
+    objective_type: str = "max",
+    objective_constant: float = 0.0
 ) -> SimplexTableau:
     """
     Create a simplex tableau from already-parsed LP problem.
@@ -344,6 +345,7 @@ def create_tableau_from_parsed(
         var_names: names of all variables
         basis_vars: names of initial basis variables
         objective_type: "max" or "min"
+        objective_constant: constant term in objective function
 
     Returns:
         SimplexTableau ready to solve
@@ -362,6 +364,9 @@ def create_tableau_from_parsed(
         tableau[-1, :n] = -c  # negative for maximization
     else:
         tableau[-1, :n] = c
+
+    # Set objective constant in RHS
+    tableau[-1, -1] = objective_constant
 
     # Big-M Method: If artificial variables are in basis, adjust objective row
     # to eliminate them from the objective function

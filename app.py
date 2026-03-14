@@ -377,6 +377,13 @@ def main():
                 index=0 if current_lang == "de" else 1,
                 key="lang_selector"
             )
+
+            # Apply button for language change
+            if selected_lang != current_lang:
+                if st.button("✓ Anwenden / Apply", type="primary", use_container_width=True):
+                    st.session_state.language = selected_lang
+                    st.rerun()
+
             st.session_state.language = selected_lang
             lang = selected_lang
 
@@ -865,6 +872,21 @@ Negative RHS (automatically handled):
             is_optimal = tableau.is_optimal()
             if is_optimal:
                 st.success("OPTIMAL")
+
+                # New Problem button after optimal solution
+                st.markdown("---")
+                if st.button("🔄 " + ("Neues Problem" if lang == "de" else "New Problem"),
+                           type="primary",
+                           use_container_width=True):
+                    # Reset everything
+                    st.session_state.tableau = None
+                    st.session_state.history = []
+                    st.session_state.step_number = 0
+                    st.session_state.pivot_info = None
+                    st.session_state.objective_input = None
+                    st.session_state.constraints_input = None
+                    st.session_state.objective_type_saved = None
+                    st.rerun()
             else:
                 st.info("Not optimal")
 

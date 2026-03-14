@@ -49,6 +49,8 @@ TRANSLATIONS = {
         "create_tableau": "Create Tableau from Expressions",
         "solve_automatically": "🚀 Solve Automatically",
         "perform_pivot": "Perform Pivot",
+        "new_problem": "New Problem",
+        "apply": "Apply",
 
         # Status
         "status": "Status",
@@ -162,6 +164,8 @@ TRANSLATIONS = {
         "create_tableau": "Tableau aus Ausdrücken erstellen",
         "solve_automatically": "🚀 Automatisch lösen",
         "perform_pivot": "Pivot durchführen",
+        "new_problem": "Neues Problem",
+        "apply": "Anwenden",
 
         # Status
         "status": "Status",

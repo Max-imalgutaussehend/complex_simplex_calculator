@@ -1,128 +1,299 @@
-# Interactive Simplex Tableau Calculator
+# 🎓 Interaktiver Simplex-Tableau-Rechner
 
-A Python/Streamlit application for interactive experimentation with the Simplex algorithm. Perfect for students and researchers studying linear programming!
+> **Entwickelt für das Studienmodul Operations Research**
+> Von der linearen Programmierung (LP) zur ganzzahligen linearen Programmierung (ILP/GLP) mit Gomory-Schnitten
 
-## Features
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://simplex-gomory.streamlit.app/)
 
-✨ **Arbitrary Tableau Manipulation**
-- Define custom simplex tableaus with any number of variables and constraints
-- Start from initial tableaus or any intermediate/final tableau
-- Edit variable names (x1, x2, s1, s2, etc.)
+---
 
-🎯 **Interactive Pivot Operations**
-- Manually select entering and leaving variables
-- Automatic pivot computation with numerical stability
-- Step-by-step history navigation
+## 📚 Motivation & Hintergrund
 
-📊 **Comprehensive Analysis**
-- Real-time reduced cost computation
-- Optimality detection
-- Unboundedness detection
-- Degeneracy warnings
-- Current basis tracking
+Dieses Tool entstand im Rahmen des Studienmoduls **Operations Research** und adressiert ein zentrales Problem:
 
-🔧 **Flexible Optimization**
-- Optimize ANY variable (not just decision variables!)
-- Maximize or minimize slack variables
-- Support for both maximization and minimization problems
+### Das Problem
+**Ganzzahlige Lineare Programmierung (GLP/ILP)** ist in der Praxis allgegenwärtig:
+- Produktionsplanung (man kann keine halben Maschinen produzieren)
+- Transportoptimierung (Anzahl LKWs muss ganzzahlig sein)
+- Personaleinsatzplanung (keine halben Mitarbeiter)
 
-## Installation
+### Der Lösungsweg
+1. **LP-Problem lösen** mit dem Simplex-Algorithmus → optimale Lösung (oft nicht ganzzahlig)
+2. **Gomory-Schnitte hinzufügen** → neue Nebenbedingungen, die fraktionale Lösungen ausschließen
+3. **Weiter pivotieren** im Endtableau → ganzzahlige optimale Lösung
 
+### Die Herausforderung
+Bestehende Tools erlauben keine **manuelle Manipulation des Endtableaus** – genau das, was für Gomory-Schnitte benötigt wird! Man braucht:
+- Zugriff auf das Endtableau mit **decision variables in der Basis**
+- Möglichkeit, **Schlupfvariablen zu optimieren** (nicht nur decision variables)
+- **Neue Zeilen hinzufügen** (Gomory-Schnitte)
+- **Schritt-für-Schritt Nachvollziehbarkeit** für das Verständnis
+
+**→ Dieses Tool schließt diese Lücke!**
+
+---
+
+## ✨ Features
+
+### 🎯 Kernfunktionalität
+- **Flexible Expression-Eingabe**: `3*x_1 + 4*x_2`, `2*x_1 + 3*x_2 <= 18`
+- **Automatische Lösung**: Ein Klick zum optimalen Tableau
+- **Manuelle Pivot-Operationen**: Vollständige Kontrolle über jeden Schritt
+- **Endtableau-Modus**: Für Gomory-Schnitte (ohne artificial variables)
+- **History-Navigation**: Alle Zwischenschritte durchgehen
+
+### 🌐 Benutzerfreundlichkeit
+- **Zweisprachig**: 🇩🇪 Deutsch / 🇬🇧 English
+- **Schöne LaTeX-Darstellung**: Gleichungssysteme mit ≥ / ≤ Symbolen
+- **Interaktive Tableaus**: Farbcodierte Pivot-Elemente
+- **Minimum-Ratio-Test**: Automatische Berechnung mit Tabelle
+- **Complete Solution Vector**: Alle Variablen (basic & non-basic)
+
+### 🔧 Erweiterte Funktionen
+- **Big-M Methode**: Automatisch für ≥ und = Constraints
+- **Konstanten in Ausdrücken**: `2.667 - 0.333*s_1 + 1.5`
+- **Beliebige Basis**: Decision variables oder Slack variables
+- **Degeneracy Detection**: Warnung bei entarteten Lösungen
+- **Unbounded Detection**: Erkennung unbeschränkter Probleme
+
+---
+
+## 🚀 Schnellstart
+
+### Online (empfohlen)
+Einfach öffnen: **[simplex-gomory.streamlit.app](https://simplex-gomory.streamlit.app/)**
+
+### Lokal installieren
 ```bash
+# Repository klonen
+git clone https://github.com/Max-imalgutaussehend/complex_simplex_calculator.git
+cd complex_simplex_calculator
+
+# Dependencies installieren
 pip install -r requirements.txt
-```
 
-## Usage
-
-Run the application:
-
-```bash
+# App starten
 streamlit run app.py
 ```
 
-## Quick Start
+Öffne Browser: `http://localhost:8501`
 
-### Mode 1: Custom Tableau
+---
 
-1. Select "Create New Tableau" in the sidebar
-2. Set number of variables and constraints
-3. Enter variable names (e.g., x1, x2, s1, s2)
-4. Fill in the tableau values
-5. Select initial basis variables
-6. Click "Create Tableau"
+## 📖 Anwendungsbeispiele
 
-### Mode 2: Standard Form (Auto-slack)
+### Beispiel 1: Standard-LP lösen
 
-1. Select "Standard Form (Auto-slack)" in the sidebar
-2. Enter number of decision variables and constraints
-3. Fill in constraint matrix A, RHS vector b, and objective coefficients c
-4. Click "Create Standard Form Tableau"
-5. Slack variables are added automatically!
+**Problem:**
+```
+Maximiere: x₁ + x₂
+Nebenbedingungen:
+  2x₁ + x₂ ≤ 4
+  x₁ + 2x₂ ≤ 4
+  x₁, x₂ ≥ 0
+```
 
-## Example: Maximization Problem
+**In der App:**
+1. **Objective**: `x_1 + x_2`
+2. **Constraints**: `2*x_1 + x_2 <= 4, x_1 + 2*x_2 <= 4`
+3. **Klick**: "🚀 Automatisch lösen"
 
-Maximize z = 3x₁ + 2x₂
+**Ergebnis:**
+- Z = 2.667
+- x₁ = 1.333, x₂ = 1.333 ⚠️ (nicht ganzzahlig!)
 
-Subject to:
-- 2x₁ + x₂ ≤ 18
-- 2x₁ + 3x₂ ≤ 42
-- 3x₁ + x₂ ≤ 24
-- x₁, x₂ ≥ 0
+---
 
-**Using Standard Form Mode:**
-1. Set decision variables = 2, constraints = 3
-2. Enter A matrix:
-   ```
-   2  1
-   2  3
-   3  1
-   ```
-3. Enter b vector: [18, 42, 24]
-4. Enter c vector: [3, 2]
+### Beispiel 2: Gomory-Schnitte für ILP
 
-The app will create the initial tableau with slack variables s1, s2, s3.
+**Situation nach LP-Lösung:**
+- Optimale Lösung: x₁ = 4/3, x₂ = 4/3
+- Problem: Nicht ganzzahlig!
 
-## Project Structure
+**Schritt 1: Endtableau aufrufen**
 
+✅ **Endtableau-Modus** aktivieren (Checkbox in Sidebar)
+
+**Input:**
+```
+Objective: 2.666667 - 0.333333*s_1 - 0.333333*s_2
+Constraints:
+  x_1 - 0.666667*s_1 + 0.333333*s_2 = 1.333333,
+  x_2 + 0.333333*s_1 - 0.666667*s_2 = 1.333333
+```
+
+**Ergebnis:**
+```
+x₁ = 4/3 - 2/3·s₁ + 1/3·s₂ ≥ 0
+x₂ = 4/3 + 1/3·s₁ - 2/3·s₂ ≥ 0
+s₁ ≥ 0
+s₂ ≥ 0
+Z = 8/3 - 1/3·s₁ - 1/3·s₂
+```
+
+**Schritt 2: Gomory-Schnitt berechnen**
+
+Aus der Zeile `x₁ = 4/3 - 2/3·s₁ + 1/3·s₂`:
+- Fraktionaler Anteil von 4/3 = 1/3
+- Gomory-Schnitt: `s₃ = 1/3 - 2/3·s₁ + 1/3·s₂`
+
+**Schritt 3: Neues Tableau mit Schnitt**
+
+Verwende "Create New Tableau" Modus:
+- 5 Variablen (x₁, x₂, s₁, s₂, s₃)
+- 3 Constraints (2 original + 1 Gomory)
+- Weiter pivotieren bis ganzzahlige Lösung
+
+---
+
+### Beispiel 3: Großes Problem (14 Variablen)
+
+**Real-world Produktionsplanung:**
+
+```
+Objective: 50*x_1+100*x_2+100*x_3+...+100*x_14
+
+Constraints:
+-50*x_1-100*x_2-100*x_4+50*x_8+100*x_10>=-30,
+-50*x_1-100*x_3-100*x_5+50*x_9+100*x_11>=-30,
+-50*x_2-100*x_6+50*x_10+100*x_12>=-20,
+-50*x_3-100*x_7+50*x_11+100*x_13>=-20,
+50*x_4+100*x_6+50*x_12-100*x_14>=-20,
+50*x_5+100*x_7+50*x_13-100*x_14>=-20,
+x_1+x_2+x_3<=1,
+x_4+x_5<=1,
+x_6+x_7<=1,
+x_8+x_9<=1,
+x_10+x_11<=1,
+x_12+x_13<=1
+```
+
+**Ergebnis nach Auto-Solve:**
+- Z = 42.72
+- Optimale Werte für alle 14 Variablen
+- Gelöst in wenigen Sekunden
+
+---
+
+## 🎨 Features im Detail
+
+### 📐 Schöne Tableau-Darstellung
+
+Jedes Tableau wird angezeigt als:
+
+**1. LaTeX-Gleichungssystem** (expandable)
+```
+s₁ = 4 - 2·x₁ - 1·x₂ ≥ 0
+s₂ = 4 - 1·x₁ - 2·x₂ ≥ 0
+x₁ ≥ 0
+x₂ ≥ 0
+Z = 0 + 1·x₁ + 1·x₂
+```
+
+**2. Traditionelle Matrix**
+```
+     x₁   x₂   s₁   s₂  RHS
+s₁   2.0  1.0  1.0  0.0  4.0
+s₂   1.0  2.0  0.0  1.0  4.0
+z   -1.0 -1.0  0.0  0.0  0.0
+```
+
+**3. Aktuelle Lösung**
+- Basisvariablen mit Werten
+- Nichtbasisvariablen = 0
+- Z-Wert prominent
+
+### 🔄 Workflow-Features
+
+**Nach Auto-Solve:**
+- ✅ Status: OPTIMAL
+- 📊 Vollständiger Lösungsvektor
+- 📈 Anzahl Iterationen
+- 🔄 "Neues Problem" Button → Reset für nächstes Problem
+
+**Während manueller Pivots:**
+- Eingangsvariable wählen (mit Hints: "Improving: x₁, x₂")
+- Ausgangsvariable wählen (mit Ratios: "s₁ (ratio: 6.0)")
+- Pivot-Details expandable (Minimum-Ratio-Test)
+- History-Navigation (Vorheriger/Nächster Schritt)
+
+---
+
+## 🏗️ Architektur
+
+### Dateistruktur
 ```
 complex_simplex_calculator/
-├── app.py              # Streamlit UI
-├── simplex.py          # Core Simplex algorithm
-├── requirements.txt    # Dependencies
-└── README.md          # Documentation
+├── app.py                  # Streamlit UI (Hauptanwendung)
+├── simplex.py             # Simplex-Algorithmus Logik
+├── parser.py              # Expression Parser (Big-M Methode)
+├── translations.py        # Deutsch/English Übersetzungen
+├── tableau_renderer.py    # LaTeX-Rendering für Tableaus
+├── requirements.txt       # Python Dependencies
+└── README.md             # Diese Datei
 ```
 
-## Key Classes
+### Technologie-Stack
+- **Framework**: Streamlit (Python)
+- **Numerik**: NumPy, Pandas
+- **Visualisierung**: LaTeX (via st.latex), Matplotlib
+- **Deployment**: Streamlit Cloud
 
-### `SimplexTableau` (simplex.py)
+---
 
-Main class for tableau representation and manipulation:
+## 🎓 Akademischer Nutzen
 
-- `pivot(row, col)` - Perform pivot operation
-- `get_reduced_costs()` - Compute reduced costs
-- `is_optimal()` - Check optimality
-- `is_unbounded(col)` - Check unboundedness
-- `get_basic_solution()` - Extract current solution
+### Für Studierende
+- ✅ **Verstehen** des Simplex-Algorithmus durch Visualisierung
+- ✅ **Üben** von Pivot-Operationen Schritt für Schritt
+- ✅ **Lernen** der Gomory-Schnitt-Methode praktisch
+- ✅ **Verifizieren** von Hausaufgaben/Klausuraufgaben
+- ✅ **Experimentieren** mit verschiedenen LP-Formulierungen
 
-## Tips
+### Für Dozenten
+- ✅ **Demonstrieren** der Algorithmen live in Vorlesungen
+- ✅ **Erstellen** von interaktiven Übungsaufgaben
+- ✅ **Zeigen** der Verbindung LP → ILP
+- ✅ **Erklären** von Degeneracy, Unboundedness, etc.
 
-- **Red metrics** indicate variables that can improve the objective
-- **Green metrics** indicate non-improving variables
-- Use history navigation to review previous steps
-- The minimum ratio test suggests the best leaving variable
-- Try optimizing slack variables to explore different bases!
+---
 
-## Technical Details
+## 🤝 Beitragen
 
-- Built with Python, NumPy, Pandas, and Streamlit
-- Numerical stability via floating-point tolerance (1e-10)
-- Clean separation between algorithm logic and UI
-- ~400 lines of well-commented code
+Contributions sind willkommen! Besonders:
+- Neue Beispiele für Gomory-Schnitte
+- Übersetzungen in weitere Sprachen
+- UI/UX Verbesserungen
+- Zusätzliche OR-Algorithmen (Dualer Simplex, etc.)
 
-## License
+**Issues & Pull Requests**: [GitHub Repository](https://github.com/Max-imalgutaussehend/complex_simplex_calculator)
 
-MIT
+---
 
-## Contributing
+## 📝 Lizenz
 
-Contributions welcome! Feel free to open issues or submit pull requests.
+MIT License - Frei verwendbar für akademische und kommerzielle Zwecke.
+
+---
+
+## 🙏 Danksagung
+
+Entwickelt im Rahmen des Studienmoduls **Operations Research** zur Unterstützung des Lernens von LP- und ILP-Optimierung.
+
+**Besonderer Dank an:**
+- Die Streamlit-Community für das großartige Framework
+- Dozenten und Kommilitonen für Feedback und Testcases
+
+---
+
+## 📧 Kontakt
+
+Bei Fragen, Bugs oder Feature-Requests:
+- **GitHub Issues**: [Issues erstellen](https://github.com/Max-imalgutaussehend/complex_simplex_calculator/issues)
+- **GitHub**: [@Max-imalgutaussehend](https://github.com/Max-imalgutaussehend)
+
+---
+
+**⭐ Wenn dir das Tool hilft, gib dem Repo einen Star auf GitHub!**
+
+*Entwickelt mit ❤️ für Operations Research*

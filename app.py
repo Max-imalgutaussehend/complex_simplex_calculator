@@ -412,6 +412,20 @@ Negative RHS (automatically handled):
         with col1:
             st.header("Tableau Definition")
 
+            # Show current tableau if it exists
+            if st.session_state.tableau is not None:
+                st.success("✓ Tableau loaded")
+
+                with st.expander("📊 View Current Tableau Matrix", expanded=False):
+                    tableau = st.session_state.tableau
+                    df = tableau.get_dataframe()
+                    st.dataframe(df.style.format("{:.4f}"), width='stretch')
+
+                    st.markdown("**Tableau Info:**")
+                    st.markdown(f"- Variables: {len(tableau.variable_names)}")
+                    st.markdown(f"- Constraints: {tableau.n_constraints}")
+                    st.markdown(f"- Basis: {', '.join(tableau.basis_variables[:5])}{'...' if len(tableau.basis_variables) > 5 else ''}")
+
         if mode == "Expression Input (Flexible)":
             # Expression-based input
             if st.session_state.tableau is None:

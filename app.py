@@ -127,10 +127,18 @@ def display_tableau_formatted(tableau: SimplexTableau, pivot_row=None, pivot_col
 
     # Display objective function
     st.markdown("#### " + get_text("objective_section", lang))
-    st.dataframe(
-        objective_row.style.format("{:.4f}").background_gradient(cmap='RdYlGn', axis=1),
-        width='stretch'
-    )
+    # Use try/except for background_gradient in case matplotlib is not available
+    try:
+        st.dataframe(
+            objective_row.style.format("{:.4f}").background_gradient(cmap='RdYlGn', axis=1),
+            width='stretch'
+        )
+    except ImportError:
+        # Fallback without gradient
+        st.dataframe(
+            objective_row.style.format("{:.4f}"),
+            width='stretch'
+        )
 
     # Display current solution
     st.markdown("---")
@@ -361,13 +369,16 @@ def main():
         # Sidebar: Configuration
         with st.sidebar:
             # Language selector at the top
-            st.session_state.language = st.selectbox(
+            current_lang = st.session_state.get('language', 'de')
+            selected_lang = st.selectbox(
                 "🌐 Language / Sprache",
                 ["de", "en"],
                 format_func=lambda x: "🇩🇪 Deutsch" if x == "de" else "🇬🇧 English",
-                index=0 if st.session_state.language == "de" else 1
+                index=0 if current_lang == "de" else 1,
+                key="lang_selector"
             )
-            lang = st.session_state.language
+            st.session_state.language = selected_lang
+            lang = selected_lang
 
             st.markdown("---")
             st.header(get_text("configuration", lang))
